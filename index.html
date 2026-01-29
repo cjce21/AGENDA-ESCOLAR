@@ -102,7 +102,7 @@
         .event-row:hover { background-color: #f8fafc; }
         
         /* TOAST */
-        #toast-container { position: fixed; bottom: 60px; right: 24px; z-index: 200; pointer-events: none; }
+        #toast-container { position: fixed; bottom: 80px; right: 24px; z-index: 200; pointer-events: none; }
         .toast { background: rgba(255, 255, 255, 0.95); color: #1e293b; padding: 12px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; opacity: 0; transform: translateY(20px); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(8px); box-shadow: 0 10px 30px -5px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; gap: 10px; }
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast::before { content: ''; width: 6px; height: 6px; background: #10b981; border-radius: 50%; }
@@ -113,6 +113,35 @@
         body.mode-detail header:hover { transform: translateY(0%); box-shadow: 0 4px 20px rgba(0,0,0,0.05); background-color: rgba(255,255,255,0.98); }
         body.mode-detail main { padding-top: 64px; }
         
+        /* FOOTER (NUEVO) */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-top: 1px solid #f3f4f6;
+            padding: 1rem;
+            z-index: 40;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.02);
+        }
+        body.mode-detail footer {
+            transform: translateY(100%);
+        }
+        
+        /* ANIMACIÓN DE COLOR DEL COPYRIGHT */
+        @keyframes montessoriCycle {
+            0% { color: #002060; }   /* Blue */
+            25% { color: #757575; }  /* Grey */
+            50% { color: #C00000; }  /* Red */
+            75% { color: #757575; }  /* Grey */
+            100% { color: #002060; } /* Blue */
+        }
+        .animate-montessori-cycle {
+            animation: montessoriCycle 8s infinite ease-in-out;
+        }
+
         /* CUSTOM INPUTS/SELECTS (Estilos preservados) */
         .custom-select-container { position: relative; width: 100%; }
         .custom-select-trigger { display: flex; align-items: center; justify-content: center; width: 100%; background-color: #fff; cursor: pointer; transition: all 0.2s; }
@@ -154,7 +183,7 @@
         .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
         button:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
         
-        /* --- NUEVO LOADING ANIMATION --- */
+        /* --- LOADING ANIMATION (Estándar) --- */
         #loading-overlay { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: opacity 0.5s; }
         #loading-overlay.hidden { opacity: 0; pointer-events: none; }
         
@@ -162,7 +191,6 @@
         .m-dot { width: 16px; height: 16px; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .m-dot.blue { background-color: #002060; animation-delay: -0.32s; }
         .m-dot.red { background-color: #C00000; animation-delay: -0.16s; }
-        /* CORRECCIÓN: Punto Gris Montessori en lugar de amarillo */
         .m-dot.grey { background-color: #757575; }
         
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
@@ -170,12 +198,11 @@
 </head>
 <body class="text-slate-800 font-sans antialiased bg-white">
     
-    <!-- Loading Screen Estético -->
+    <!-- Loading Screen Estándar -->
     <div id="loading-overlay">
         <div class="montessori-loader">
             <div class="m-dot blue"></div>
             <div class="m-dot red"></div>
-            <!-- Punto Gris -->
             <div class="m-dot grey"></div>
         </div>
         <p class="text-montessori-blue font-bold text-sm tracking-widest uppercase animate-pulse">Sincronizando Agenda...</p>
@@ -282,6 +309,13 @@
             </div>
         </div>
     </main>
+    
+    <!-- Footer con Copyright y Link -->
+    <footer class="bg-white/90 backdrop-blur-sm border-t border-gray-100">
+        <div class="text-center text-[10px] sm:text-xs">
+            <a href="https://cjce21.github.io/PORTAFOLIO/" target="_blank" class="animate-montessori-cycle font-medium transition-opacity hover:opacity-80" style="text-decoration: none !important;" title="Visitar Portafolio">© 2026 Agenda Escolar - Pinceladas Montessori | Desarrollado por Didac-Click Group</a>
+        </div>
+    </footer>
 
     <div id="toast-container">
         <div id="toast" class="toast">Agenda actualizada</div>
