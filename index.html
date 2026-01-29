@@ -194,6 +194,12 @@
         .m-dot.grey { background-color: #757575; }
         
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        /* Estilo placeholder buscador */
+        #global-search::placeholder {
+            color: #94a3b8;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body class="text-slate-800 font-sans antialiased bg-white">
@@ -247,17 +253,42 @@
         <!-- VISTA 1: Selector de Meses -->
         <div id="view-month-selector" class="absolute inset-0 p-4 md:p-6 overflow-y-auto w-full pb-32">
             <div class="max-w-[1600px] mx-auto">
-                <div class="mb-4 flex flex-col gap-1">
-                    <!-- COMPACTACIÓN: Títulos más ajustados -->
-                    <h2 class="text-3xl md:text-4xl font-black text-montessori-blue font-montserrat tracking-tight leading-none mb-1">Panel Principal</h2>
-                    <p class="text-gray-500 font-medium text-sm md:text-base flex items-center gap-2">
-                        Organización por ciclo académico 
-                        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-                        <span id="year-label" class="font-bold text-montessori-red">Ciclo 25-26</span>
-                    </p>
+                <!-- CABECERA PRINCIPAL CON TÍTULO Y BUSCADOR INTEGRADOS -->
+                <div class="mb-8 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                    <div class="flex flex-col gap-1 shrink-0">
+                        <!-- COMPACTACIÓN: Títulos más ajustados -->
+                        <h2 class="text-3xl md:text-4xl font-black text-montessori-blue font-montserrat tracking-tight leading-none mb-1">Panel Principal</h2>
+                        <p class="text-gray-500 font-medium text-sm md:text-base flex items-center gap-2">
+                            Organización por ciclo académico 
+                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                            <span id="year-label" class="font-bold text-montessori-red">Ciclo 25-26</span>
+                        </p>
+                    </div>
+
+                    <!-- BUSCADOR GENERAL (INTEGRADO) -->
+                    <div class="relative group w-full max-w-xl">
+                        <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400 group-focus-within:text-montessori-blue transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        </div>
+                        <input type="text" id="global-search" 
+                               class="block w-full pl-14 pr-12 py-3 md:py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 focus:border-montessori-blue transition-all shadow-sm font-medium text-base" 
+                               placeholder="Buscar evento, categoría o fecha..." 
+                               autocomplete="off">
+                        <button id="clear-search" onclick="clearGlobalSearch()" class="absolute inset-y-0 right-0 pr-4 flex items-center hidden text-gray-300 hover:text-montessori-red cursor-pointer transition-colors">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
                 </div>
+
+                <!-- RESULTADOS DE BÚSQUEDA (Inicialmente oculto) -->
+                <div id="search-results-container" class="hidden space-y-4 pb-12 animate-fade-in">
+                    <!-- Los resultados se inyectan aquí -->
+                </div>
+
                 <!-- Grid Compacta: Gap reducido, tarjetas con menor altura mínima -->
-                <div id="month-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-12"></div>
+                <div id="month-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-12 transition-opacity duration-300"></div>
             </div>
         </div>
 
@@ -474,6 +505,9 @@
             "La primera tarea de la educación es agitar la vida, pero dejarla libre para que se desarrolle.",
             "Ayúdame a hacerlo por mí mismo."
         ];
+        
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const shortMonthNames = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 
         // --- INIT & LOGIC ---
         function initApp() {
@@ -481,6 +515,7 @@
             updateCycleDisplay();
             showMonthSelector();
             initColorGrid();
+            initSearchListener(); // Nuevo Listener
             
             fetchEvents(false); 
             startPolling();
@@ -503,6 +538,146 @@
                 if(cp && ct && !cp.contains(e.target) && !ct.contains(e.target)) cp.classList.remove('show');
             });
         }
+
+        // --- SEARCH FEATURE LOGIC ---
+        function initSearchListener() {
+            const searchInput = document.getElementById('global-search');
+            if(!searchInput) return;
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                handleGlobalSearch(query);
+            });
+        }
+
+        function clearGlobalSearch() {
+            const input = document.getElementById('global-search');
+            input.value = '';
+            handleGlobalSearch('');
+            input.focus();
+        }
+
+        function handleGlobalSearch(query) {
+            const grid = document.getElementById('month-grid');
+            const resultsContainer = document.getElementById('search-results-container');
+            const clearBtn = document.getElementById('clear-search');
+
+            if (query.length === 0) {
+                grid.classList.remove('hidden');
+                grid.style.opacity = '1';
+                resultsContainer.classList.add('hidden');
+                clearBtn.classList.add('hidden');
+                return;
+            }
+
+            grid.classList.add('hidden');
+            grid.style.opacity = '0';
+            resultsContainer.classList.remove('hidden');
+            clearBtn.classList.remove('hidden');
+
+            const matches = allEvents.filter(e => {
+                // Search in title
+                if (e.title.toLowerCase().includes(query)) return true;
+                // Search in description
+                if (e.description && e.description.toLowerCase().includes(query)) return true;
+                // Search in category
+                if (e.category.toLowerCase().includes(query)) return true;
+                if (e.category_custom && e.category_custom.toLowerCase().includes(query)) return true;
+                // Search in month name
+                const d = new Date(e.date);
+                if (!isNaN(d.getTime())) {
+                    const dFix = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+                    const monthName = monthNames[dFix.getMonth()].toLowerCase();
+                    if (monthName.includes(query)) return true;
+                }
+                return false;
+            }).sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            renderSearchResults(matches, resultsContainer, query);
+        }
+
+        function renderSearchResults(events, container, query) {
+            container.innerHTML = '';
+            
+            if (events.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-20 text-center opacity-60">
+                        <div class="bg-gray-50 p-6 rounded-full mb-4">
+                            <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-500">Sin resultados</h3>
+                        <p class="text-sm text-gray-400">No encontramos coincidencias para "<span class="text-montessori-blue font-semibold">${query}</span>".</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Results summary
+            const summary = document.createElement('div');
+            summary.className = "text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 pl-1";
+            summary.textContent = `Encontrados ${events.length} resultados`;
+            container.appendChild(summary);
+
+            events.forEach(e => {
+                const d = new Date(e.date);
+                const dFix = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+                const day = dFix.getDate();
+                const monthShort = shortMonthNames[dFix.getMonth()];
+                const year = dFix.getFullYear();
+                
+                let catName = "Evento";
+                let catColorStyle = "background-color: #0d9488;"; 
+                if (e.category === 'institucional') { catName = "Institucional"; catColorStyle = "background-color: #4b5563;"; }
+                else if (e.category === 'academico') { catName = "Académico"; catColorStyle = "background-color: #002060;"; }
+                else if (e.category === 'festivo') { catName = "Festivo"; catColorStyle = "background-color: #C00000;"; }
+                else if (e.category === 'extracurricular') { catName = "Extracurricular"; catColorStyle = "background-color: #FFD966;"; }
+                else if (e.category === 'custom') { 
+                    catName = e.category_custom || "Personalizado"; 
+                    if(e.color_custom) catColorStyle = `background-color: ${e.color_custom};`;
+                }
+                
+                const commentCount = e.comments ? e.comments.length : 0;
+                const deleteBtn = e.readOnly ? '' : `<button onclick="deleteEvent('${e.id}')" class="p-2 text-gray-300 hover:text-montessori-red transition-colors" title="Eliminar"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>`;
+                
+                const row = document.createElement('div');
+                // Added border and rounded styling for better separation in list view
+                row.className = "w-full px-6 py-5 bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col md:flex-row gap-4 md:items-center group hover:shadow-hover transition-all";
+                
+                row.innerHTML = `
+                    <div class="flex md:flex-col items-center md:items-start gap-3 md:gap-0 min-w-[80px]">
+                        <div class="flex items-baseline gap-1 md:block md:gap-0">
+                            <span class="text-xl md:text-2xl font-black text-gray-800 font-montserrat leading-none">${day}</span>
+                            <span class="text-sm font-bold text-montessori-blue uppercase">${monthShort}</span>
+                        </div>
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">${year}</span>
+                    </div>
+                    
+                    <div class="hidden md:block w-1 h-12 rounded-full" style="${catColorStyle}"></div>
+                    
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="md:hidden w-2 h-2 rounded-full" style="${catColorStyle}"></span>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">${catName}</span>
+                            ${e.readOnly ? '<span class="text-[9px] bg-blue-100 text-montessori-blue px-1.5 py-0.5 rounded font-bold">OFICIAL</span>' : ''}
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-800 leading-tight">${e.title}</h4>
+                        ${e.description ? `<p class="text-sm text-gray-500 mt-1 max-w-3xl truncate">${e.description}</p>` : ''}
+                    </div>
+                    
+                    <div class="flex items-center gap-4 mt-2 md:mt-0 opacity-100">
+                         <button onclick="openComments('${e.id}')" class="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-montessori-blue transition-colors bg-gray-50 hover:bg-blue-50 px-3 py-2 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                            ${commentCount > 0 ? `${commentCount}` : 'Notas'}
+                        </button>
+                        <button onclick="editEvent('${e.id}')" class="p-2 text-gray-300 hover:text-montessori-blue transition-colors" title="Editar">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        </button>
+                        ${deleteBtn}
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
 
         function startPolling() {
             if(pollingInterval) clearInterval(pollingInterval);
@@ -590,9 +765,16 @@
                     if (currentDataStr !== newDataStr) {
                         console.log("Cambios detectados, actualizando interfaz...");
                         allEvents = newData;
-                        // Solo renderizar grid si está visible, para no romper transiciones
+                        // Solo renderizar grid si está visible y NO hay búsqueda activa
+                        const searchInput = document.getElementById('global-search');
+                        const isSearching = searchInput && searchInput.value.trim().length > 0;
+                        
                         if(!document.getElementById('view-month-selector').classList.contains('hidden')) {
-                             renderMonthGrid();
+                             if(isSearching) {
+                                 handleGlobalSearch(searchInput.value.trim());
+                             } else {
+                                 renderMonthGrid();
+                             }
                         }
                         if (currentMonthView && !document.getElementById('view-month-detail').classList.contains('hidden')) {
                              renderEventsForMonth(currentMonthView.year, currentMonthView.month);
@@ -756,7 +938,6 @@
         }
 
         // --- CYCLE NAVIGATION & RENDER ---
-        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
         function changeCycle(delta) {
             const nextYear = currentCycleStartYear + delta;
@@ -766,6 +947,13 @@
             currentCycleStartYear = nextYear;
             updateCycleDisplay();
             updateNavigationState();
+            
+            // Limpiar búsqueda al cambiar de ciclo para evitar confusión
+            const searchInput = document.getElementById('global-search');
+            if(searchInput) {
+                searchInput.value = '';
+                handleGlobalSearch('');
+            }
             
             fetchEvents(false); 
         }
@@ -811,7 +999,16 @@
             document.getElementById('view-month-selector').classList.remove('hidden');
             document.getElementById('view-month-detail').classList.add('hidden');
             document.body.classList.remove('mode-detail');
-            renderMonthGrid();
+            
+            // Check if search is active
+            const searchInput = document.getElementById('global-search');
+            if(searchInput && searchInput.value.trim().length > 0) {
+                 // Keep search results visible
+                 document.getElementById('month-grid').classList.add('hidden');
+                 document.getElementById('search-results-container').classList.remove('hidden');
+            } else {
+                renderMonthGrid();
+            }
         }
 
         function renderMonthGrid() {
@@ -1041,7 +1238,17 @@
                     data.id = "temp-" + Date.now();
                     allEvents.push(data);
                 }
-                if(!document.getElementById('view-month-selector').classList.contains('hidden')) renderMonthGrid();
+                
+                // Refresh views depending on current state (search vs grid)
+                const searchInput = document.getElementById('global-search');
+                if (!document.getElementById('view-month-selector').classList.contains('hidden')) {
+                     if (searchInput && searchInput.value.trim().length > 0) {
+                         handleGlobalSearch(searchInput.value.trim());
+                     } else {
+                         renderMonthGrid();
+                     }
+                }
+                
                 if(currentMonthView) renderEventsForMonth(currentMonthView.year, currentMonthView.month);
                 showToast("Guardado localmente (Sin conexión)");
             } finally {
@@ -1063,7 +1270,17 @@
                     }
                 } catch(e) {
                     allEvents = allEvents.filter(e => e.id !== id);
-                    if (!document.getElementById('view-month-selector').classList.contains('hidden')) renderMonthGrid();
+                    
+                    // Refresh logic for delete
+                    const searchInput = document.getElementById('global-search');
+                    if (!document.getElementById('view-month-selector').classList.contains('hidden')) {
+                         if (searchInput && searchInput.value.trim().length > 0) {
+                             handleGlobalSearch(searchInput.value.trim());
+                         } else {
+                             renderMonthGrid();
+                         }
+                    }
+                    
                     if (currentMonthView && !document.getElementById('view-month-detail').classList.contains('hidden')) renderEventsForMonth(currentMonthView.year, currentMonthView.month);
                     showToast("Eliminado localmente");
                 } finally {
