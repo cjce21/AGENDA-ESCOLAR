@@ -607,8 +607,8 @@
             const searchInput = document.getElementById('global-search');
             if(!searchInput) return;
             searchInput.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                handleGlobalSearch(query);
+                // Pass raw value, handleGlobalSearch handles normalization now
+                handleGlobalSearch(e.target.value);
             });
         }
 
@@ -620,11 +620,14 @@
         }
 
         function handleGlobalSearch(query) {
+            // CRITICAL FIX: Normalize query here to ensure consistency regardless of caller
+            const normalizedQuery = (query || '').toLowerCase().trim();
+            
             const grid = document.getElementById('month-grid');
             const resultsContainer = document.getElementById('search-results-container');
             const clearBtn = document.getElementById('clear-search');
 
-            if (query.length === 0) {
+            if (normalizedQuery.length === 0) {
                 grid.classList.remove('hidden');
                 grid.style.opacity = '1';
                 resultsContainer.classList.add('hidden');
@@ -638,21 +641,21 @@
             clearBtn.classList.remove('hidden');
 
             const matches = allEvents.filter(e => {
-                if (e.title.toLowerCase().includes(query)) return true;
-                if (e.description && e.description.toLowerCase().includes(query)) return true;
-                if (e.category.toLowerCase().includes(query)) return true;
-                if (e.category_custom && e.category_custom.toLowerCase().includes(query)) return true;
+                if (e.title.toLowerCase().includes(normalizedQuery)) return true;
+                if (e.description && e.description.toLowerCase().includes(normalizedQuery)) return true;
+                if (e.category.toLowerCase().includes(normalizedQuery)) return true;
+                if (e.category_custom && e.category_custom.toLowerCase().includes(normalizedQuery)) return true;
                 // Search in month
                 const d = new Date(e.date);
                 if (!isNaN(d.getTime())) {
                     const dFix = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
                     const monthName = monthNames[dFix.getMonth()].toLowerCase();
-                    if (monthName.includes(query)) return true;
+                    if (monthName.includes(normalizedQuery)) return true;
                 }
                 return false;
             }).sort((a,b) => new Date(a.date) - new Date(b.date));
 
-            renderSearchResults(matches, resultsContainer, query);
+            renderSearchResults(matches, resultsContainer, normalizedQuery);
         }
 
         function renderSearchResults(events, container, query) {
@@ -825,15 +828,8 @@
                     const newDataStr = JSON.stringify(newData);
                     if (currentDataStr !== newDataStr) {
                         allEvents = newData;
-                        const searchInput = document.getElementById('global-search');
-                        const isSearching = searchInput && searchInput.value.trim().length > 0;
-                        if(!document.getElementById('view-month-selector').classList.contains('hidden')) {
-                             if(isSearching) handleGlobalSearch(searchInput.value.trim());
-                             else renderMonthGrid();
-                        }
-                        if (currentMonthView && !document.getElementById('view-month-detail').classList.contains('hidden')) {
-                             renderEventsForMonth(currentMonthView.year, currentMonthView.month);
-                        }
+                        // CORRECCION: Usar refreshUI para asegurar consistencia
+                        refreshUI();
                         if(isBackground) showToast("Sincronizado");
                     }
                 } 
@@ -1063,10 +1059,12 @@
             document.getElementById('view-month-selector').classList.remove('hidden');
             document.getElementById('view-month-detail').classList.add('hidden');
             document.body.classList.remove('mode-detail');
+            
+            // CORRECCION: Forzar búsqueda si hay texto en el input al volver a esta vista
             const searchInput = document.getElementById('global-search');
             if(searchInput && searchInput.value.trim().length > 0) {
-                 document.getElementById('month-grid').classList.add('hidden');
-                 document.getElementById('search-results-container').classList.remove('hidden');
+                 // Pass raw value, handleGlobalSearch will normalize
+                 handleGlobalSearch(searchInput.value);
             } else {
                 renderMonthGrid();
             }
@@ -1317,17 +1315,9 @@
             closeModal('event-modal');
             document.getElementById('loading-overlay').classList.remove('hidden');
 
-            // Save loop (Simulated for multiple, in real backend ideally bulk insert)
-            // We will just process them optimistically in local array and send one request if possible or loop
-            // Since Apps Script is simple, we send the first one as "save" and if recurrence, we add them to local array.
-            // *NOTE*: Apps Script limit might be hit with many requests. Better to send array? 
-            // Current API likely expects single object.
-            
             try {
-                // We send the MAIN event to server to ensure at least one saves
                 const action = id ? 'update' : 'create';
-                // For simplicity in this demo, we only send the first one to server to verify connection
-                // But locally we add all. In production, API should accept array.
+                // Fetch call
                 const response = await fetch(API_URL + `?action=${action}`, {
                     method: 'POST',
                     body: JSON.stringify(baseEvent)
@@ -1343,7 +1333,6 @@
                 
                 if(recurrence !== 'none') {
                     showToast(`Guardados ${eventsToSave.length} eventos recurrentes (Local)`);
-                    // Background sync for others could go here
                 } else {
                     showToast(id ? "Actividad actualizada" : "Actividad creada");
                 }
@@ -1367,14 +1356,23 @@
         
         function refreshUI() {
              const searchInput = document.getElementById('global-search');
-             if (!document.getElementById('view-month-selector').classList.contains('hidden')) {
+             // Comprobar si estamos en la vista principal (View Month Selector)
+             const isMainView = !document.getElementById('view-month-selector').classList.contains('hidden');
+             
+             if (isMainView) {
+                  // CORRECCIÓN CRÍTICA: Forzar búsqueda si hay texto
                   if (searchInput && searchInput.value.trim().length > 0) {
-                      handleGlobalSearch(searchInput.value.trim());
+                      // Pass raw value, handleGlobalSearch will normalize
+                      handleGlobalSearch(searchInput.value);
                   } else {
                       renderMonthGrid();
                   }
              }
-             if(currentMonthView) renderEventsForMonth(currentMonthView.year, currentMonthView.month);
+             
+             // Si estamos en detalle de mes, actualizar esa vista
+             if(currentMonthView && !document.getElementById('view-month-detail').classList.contains('hidden')) {
+                 renderEventsForMonth(currentMonthView.year, currentMonthView.month);
+             }
         }
 
         window.deleteEvent = async (id) => {
